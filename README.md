@@ -16,12 +16,15 @@ stick's top folder, or one or two folders down) and copies the game to
 `/starlight/config/fheroes2`, where its settings and saves also go. From
 then on the stick is not needed.
 
+How to build it: [docs/BUILDING.md](docs/BUILDING.md).
+
 | File or folder | What it is |
 | --- | --- |
 | `build.sh` | fetches fheroes2 at a fixed commit, patches it, builds it with CMake (the translations need `msgfmt`, gettext); `app` makes `fheroes2.app`; `demo` fetches the free demo (SHA-256) for tests; `stick [folder]` puts a game's folder on a FAT32 stick image for QEMU |
 | `app/app.ini` | the Starlight bundle's description: capabilities and the folders it may read |
 | `patches/0001-peos.patch` | SDL's software renderer on PeOS (no GPU needed); file lookup that starts from the folders an app may read; the copy of your game on the first start; a log line for each save and load |
 | `tests/` | the test bundle and its steps (`make test-fheroes2` in PeOS) |
+| `docs/BUILDING.md` | how to build it with a PeOS checkout, and try it in QEMU |
 
 What PeOS gives it, in PeOS's tree:
 - `userland/ports/sdl2`: the real SDL 2.30.9 with PeOS's video and audio
