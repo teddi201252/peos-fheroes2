@@ -1,0 +1,116 @@
+Binary files src.orig/fheroes2 and src/fheroes2 differ
+Binary files src.orig/files/lang/be.mo and src/files/lang/be.mo differ
+Binary files src.orig/files/lang/bg.mo and src/files/lang/bg.mo differ
+Binary files src.orig/files/lang/cs.mo and src/files/lang/cs.mo differ
+Binary files src.orig/files/lang/da.mo and src/files/lang/da.mo differ
+Binary files src.orig/files/lang/de.mo and src/files/lang/de.mo differ
+Binary files src.orig/files/lang/el.mo and src/files/lang/el.mo differ
+Binary files src.orig/files/lang/eo.mo and src/files/lang/eo.mo differ
+Binary files src.orig/files/lang/es.mo and src/files/lang/es.mo differ
+Binary files src.orig/files/lang/fr.mo and src/files/lang/fr.mo differ
+Binary files src.orig/files/lang/hu.mo and src/files/lang/hu.mo differ
+Binary files src.orig/files/lang/it.mo and src/files/lang/it.mo differ
+Binary files src.orig/files/lang/lt.mo and src/files/lang/lt.mo differ
+Binary files src.orig/files/lang/nb.mo and src/files/lang/nb.mo differ
+Binary files src.orig/files/lang/nl.mo and src/files/lang/nl.mo differ
+Binary files src.orig/files/lang/pl.mo and src/files/lang/pl.mo differ
+Binary files src.orig/files/lang/pt.mo and src/files/lang/pt.mo differ
+Binary files src.orig/files/lang/ro.mo and src/files/lang/ro.mo differ
+Binary files src.orig/files/lang/ru.mo and src/files/lang/ru.mo differ
+Binary files src.orig/files/lang/sk.mo and src/files/lang/sk.mo differ
+Binary files src.orig/files/lang/sv.mo and src/files/lang/sv.mo differ
+Binary files src.orig/files/lang/tr.mo and src/files/lang/tr.mo differ
+Binary files src.orig/files/lang/uk.mo and src/files/lang/uk.mo differ
+Binary files src.orig/files/lang/vi.mo and src/files/lang/vi.mo differ
+diff -ruN -x .git src.orig/src/engine/screen.cpp src/src/engine/screen.cpp
+--- a/src/engine/screen.cpp	2026-11-17 18:09:26
++++ b/src/engine/screen.cpp	2026-11-17 18:12:29
+@@ -1235,7 +1235,12 @@
+             _driverIndex = -1;
+ 
+             if ( const int driverCount = SDL_GetNumRenderDrivers(); driverCount >= 0 ) {
++#if defined( __peos__ )
++                // PeOS: SDL's software renderer (no GPU needed): the frame goes into the Starlight window
++                const uint32_t requiredFlags = SDL_RENDERER_SOFTWARE;
++#else
+                 const uint32_t requiredFlags = SDL_RENDERER_ACCELERATED;
++#endif
+ 
+                 for ( int driverId = 0; driverId < driverCount; ++driverId ) {
+                     const int returnCode = SDL_GetRenderDriverInfo( driverId, &rendererInfo );
+@@ -1284,7 +1289,11 @@
+ 
+             _createPalette();
+ 
++#if defined( __peos__ )
++            _renderer = SDL_CreateRenderer( _window, _driverIndex, SDL_RENDERER_SOFTWARE );
++#else
+             _renderer = SDL_CreateRenderer( _window, _driverIndex, SDL_RENDERER_ACCELERATED );
++#endif
+             if ( _renderer == nullptr ) {
+                 ERROR_LOG( "Failed to create a window renderer of " << resolutionInfo.gameWidth << " x " << resolutionInfo.gameHeight
+                                                                     << " size. The error: " << SDL_GetError() )
+diff -ruN -x .git src.orig/src/engine/system.cpp src/src/engine/system.cpp
+--- a/src/engine/system.cpp	2026-11-17 18:09:26
++++ b/src/engine/system.cpp	2026-11-17 18:18:04
+@@ -450,7 +450,59 @@
+ 
+ bool System::GetCaseInsensitivePath( const std::string_view path, std::string & correctedPath )
+ {
+-#if !defined( _WIN32 ) && !defined( ANDROID ) && !defined( TARGET_PS_VITA ) && !defined( __IPHONEOS__ )
++#if defined( __peos__ )
++    // PeOS: an app may read only the folders its app.ini grants (say
++    // /starlight/config), not "/" nor "/starlight": the walk starts from the
++    // longest leading part of the path that opens as it is, and only the
++    // parts after it are looked for whatever their case (DATA or data).
++    correctedPath.clear();
++    if ( path.empty() ) {
++        return false;
++    }
++    const std::string full( path );
++    std::string head = full;
++    std::unique_ptr<DIR, int ( * )( DIR * )> dir( nullptr, closedir );
++    for ( ;; ) {
++        if ( head.empty() ) {
++            head = full.front() == '/' ? "/" : ".";
++        }
++        dir.reset( opendir( head.c_str() ) );
++        if ( dir || head == "/" || head == "." ) {
++            break;
++        }
++        const size_t slash = head.find_last_of( '/' );
++        head = slash == std::string::npos ? std::string() : head.substr( 0, slash );
++    }
++    if ( !dir ) {
++        // Nothing of it opens: the path as it is, if it is a file there
++        correctedPath = full;
++        return true;
++    }
++    correctedPath = ( head == "." && full.front() != '.' ) ? std::string() : head;
++    const std::string rest = full.size() > head.size() && head != "." ? full.substr( head.size() ) : ( head == "." ? full : std::string() );
++    for ( const std::filesystem::path & pathItem : std::filesystem::path{ rest } ) {
++        const std::string item = pathItem.string();
++        if ( item.empty() || item == "/" ) {
++            continue;
++        }
++        if ( !dir ) {
++            return false;
++        }
++        const struct dirent * entry = readdir( dir.get() );
++        while ( entry != nullptr && strcasecmp( item.c_str(), entry->d_name ) != 0 ) {
++            entry = readdir( dir.get() );
++        }
++        if ( entry == nullptr ) {
++            return false;
++        }
++        if ( !correctedPath.empty() && correctedPath.back() != '/' ) {
++            correctedPath += '/';
++        }
++        correctedPath += entry->d_name;
++        dir.reset( opendir( correctedPath.c_str() ) );
++    }
++    return !correctedPath.empty();
++#elif !defined( _WIN32 ) && !defined( ANDROID ) && !defined( TARGET_PS_VITA ) && !defined( __IPHONEOS__ )
+     // The following code is based on https://github.com/OneSadCookie/fcaseopen and assumes the use of POSIX IEEE Std 1003.1-2001 pathnames
+     correctedPath.clear();
+ 

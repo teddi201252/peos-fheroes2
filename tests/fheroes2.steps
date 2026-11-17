@@ -1,0 +1,9 @@
+# make test-fheroes2: fheroes2 from the dock (the first tile), then its
+# first screens.
+wait 5
+move 74 89
+click
+wait 40
+shot start
+wait 20
+shot later
