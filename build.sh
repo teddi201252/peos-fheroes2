@@ -10,7 +10,11 @@
 #   userland/ports/fheroes2/build.sh fetch   fheroes2 1.1.18, patched
 #   userland/ports/fheroes2/build.sh build   the program: build/fheroes2/fheroes2
 #   userland/ports/fheroes2/build.sh demo    the Heroes II demo, for make test-fheroes2
-#   userland/ports/fheroes2/build.sh all     fetch and build
+#   userland/ports/fheroes2/build.sh app     the bundle build/fheroes2/fheroes2.app (the engine and its
+#                                            own files, no game: the app copies the user's on its first start)
+#   userland/ports/fheroes2/build.sh stick [folder]   a game's folder (with DATA/HEROES2.AGG; the demo
+#       by default) on a FAT32 stick image, build/fheroes2/stick/disk.img: it stays on this machine
+#   userland/ports/fheroes2/build.sh all     fetch, build and app
 #
 # The same script is the public copy's (the peos-fheroes2 repository, the
 # port's files at its top): there PEOS_DIR names a PeOS checkout.
@@ -65,10 +69,53 @@ demo() {   # 3DO's free demo, for the tests only: never in git, an image or a pa
     echo "fheroes2: the demo in $W/demo/x (DATA, MAPS)"
 }
 
+app() {   # fheroes2.app: the engine, its own files (GPL or free to share), the icon
+    local app="$W/fheroes2.app" src="$W/src/files"
+    [ -f "$W/fheroes2" ] || { echo "fheroes2: no $W/fheroes2 (build.sh build)"; exit 1; }
+    rm -rf "$app" && mkdir -p "$app/files/data" "$app/files/lang" "$app/files/timidity" "$app/resources"
+    cp "$W/fheroes2" "$app/app.bin"
+    cp "$HERE/app/app.ini" "$app/app.ini"
+    cp "$src/data/resurrection.h2d" "$app/files/data/"
+    cp "$src"/lang/*.mo "$app/files/lang/"
+    cp -R "$src/timidity/." "$app/files/timidity/"
+    cp "$W/src/src/resources/fheroes2.png" "$app/resources/icon.png"
+    echo "fheroes2: $app ($(du -sh "$app" | cut -f1 | tr -d ' '))"
+}
+
+stick() {   # a game's folder on a stick image, never anywhere else (build/ is not in git)
+    local src="${1:-$W/demo/x}" out="$W/stick" part=1048576 mb
+    [ -d "$src" ] || { echo "fheroes2: no folder $src (build.sh demo, or the game's folder)"; exit 1; }
+    ls "$src" | grep -qix data || { echo "fheroes2: no DATA folder in $src"; exit 1; }
+    command -v mkfs.fat >/dev/null && command -v mcopy >/dev/null ||
+        { echo "fheroes2: stick needs mkfs.fat and mcopy (dosfstools, mtools)"; exit 1; }
+    mkdir -p "$out"
+    mb=$(( $(du -sm "$src" | cut -f1) + 64 ))
+    rm -f "$out/disk.img" "$out/part.img"
+    dd if=/dev/zero of="$out/part.img" bs=1048576 count=0 seek="$mb" 2>/dev/null
+    mkfs.fat -F 32 -h $((part / 512)) -n GAMES "$out/part.img" >/dev/null
+    mcopy -s -i "$out/part.img" "$src" "::/HEROES2"
+    dd if=/dev/zero of="$out/disk.img" bs="$part" count=1 2>/dev/null
+    cat "$out/part.img" >> "$out/disk.img"
+    rm -f "$out/part.img"
+    python3 - "$out/disk.img" "$part" <<'PY'
+import struct, sys
+path, start = sys.argv[1], int(sys.argv[2])
+with open(path, "r+b") as f:
+    f.seek(0, 2)
+    sectors = (f.tell() - start) // 512
+    entry = bytes([0x00, 0xFE, 0xFF, 0xFF, 0x0C, 0xFE, 0xFF, 0xFF]) + struct.pack("<II", start // 512, sectors)
+    f.seek(446)
+    f.write(entry + bytes(48) + b"\x55\xaa")
+PY
+    echo "fheroes2: $out/disk.img ($src as HEROES2 on a FAT32 stick)"
+}
+
 case "${1:-all}" in
     fetch) fetch ;;
     build) build ;;
     demo) demo ;;
-    all) fetch; build ;;
-    *) echo "usage: $0 fetch|build|demo|all"; exit 2 ;;
+    app) app ;;
+    stick) stick "${2:-}" ;;
+    all) fetch; build; app ;;
+    *) echo "usage: $0 fetch|build|demo|app|all|stick [folder]"; exit 2 ;;
 esac

@@ -1,13 +1,87 @@
-# make test-fheroes2: fheroes2 from the dock (the first tile), then its
-# first screens. Enter closes the welcome message; on "Data files not
-# found!" it ends the game, which logs the exception the test looks for.
+# make test-fheroes2: fheroes2 from the dock (the first tile). It copies
+# the demo from the stick, then: the welcome message, the resolution, a new
+# standard game on the demo's map, two turns, a quick save, back to the
+# main menu and the save loaded. Keys, not clicks (fheroes2's hotkeys);
+# waits on the log's lines where fheroes2 writes one.
 wait 5
 move 74 89
 click
-wait 40
-shot start
+waitlog 240 fheroes2-setup: copied
 wait 20
-shot later
+shot language
+# the language (English chosen), the welcome message, then the resolution
+# (640x480 chosen)
+key ret
+wait 6
+shot welcome
+key ret
+wait 6
+shot resolution
+key ret
+wait 8
+shot menu
+# New Game, Standard: the scenario list
+key n
+wait 6
+shot newgame
+# the demo's warning: one scenario only
+key ret
+wait 5
+key s
+wait 8
+shot scenarios
+key ret
+wait 5
+shot players
+key ret
+wait 25
+shot map
+key ret
+wait 5
+shot map2
+# end turn (the AI plays), twice
+key e
+wait 5
+shot endturn
+key ret
+wait 40
+shot turn2
+key e
+wait 5
+shot endturn2
 key ret
 wait 10
-shot after-enter
+shot endturn2b
+wait 30
+shot turn3
+# quick save
+key f2
+waitlog 60 fheroes2: saved /starlight/config/fheroes2/files/save/QUICKSAVE
+wait 3
+shot saved
+# quit (q, then Yes), open it again from the dock: no copy this time, the
+# settings kept (no language or resolution question), the main menu
+key q
+wait 5
+shot quit
+key ret
+wait 10
+shot closed
+move 74 89
+click
+wait 40
+shot again
+# Load Game, Standard: the saved games
+key l
+wait 6
+shot load
+key s
+wait 6
+shot saves
+# the list: AUTOSAVE, then QUICKSAVE (the one made above)
+key down
+wait 2
+key ret
+waitlog 60 fheroes2: loaded /starlight/config/fheroes2/files/save/QUICKSAVE
+wait 15
+shot loaded

@@ -5,21 +5,22 @@ engine of *Heroes of Might and Magic II*, to
 [PeOS](https://github.com/teddi201252). It plays the game with **your own**
 copy of Heroes II (GOG or CD), or with 3DO's free demo.
 
-**Work in progress** (2026-11-17). Done:
-- fheroes2 1.1.18 compiles and links for PeOS (C++17, `std::thread`,
-  `std::filesystem`);
-- it starts as a Starlight app and draws with SDL's software renderer,
-  scaled to the window.
+**State** (2026-11-18): `fheroes2.app` plays the demo on PeOS (in QEMU,
+no GPU needed): a new game, turns, a save, quit, and the save loaded after
+opening it again.
 
-Not yet:
-- run as an app, it does not find the game's data yet. Its folder lookup
-  meets PeOS's per-app folder permissions;
-- `fheroes2.app` with a setup that copies your game from a USB stick.
+How it gets your game: put the game's folder (the one with `DATA`, and
+`MAPS`, `MUSIC`, `ANIM` if you have them) on a USB stick, or in `/home`.
+On its first start fheroes2 finds `DATA/HEROES2.AGG` there (in the
+stick's top folder, or one or two folders down) and copies the game to
+`/starlight/config/fheroes2`, where its settings and saves also go. From
+then on the stick is not needed.
 
 | File or folder | What it is |
 | --- | --- |
-| `build.sh` | fetches fheroes2 at a fixed commit, patches it, builds it with CMake; `demo` fetches the free demo (SHA-256) for tests |
-| `patches/0001-peos.patch` | SDL's software renderer on PeOS (no GPU needed); file lookup that starts from the folders an app may read |
+| `build.sh` | fetches fheroes2 at a fixed commit, patches it, builds it with CMake (the translations need `msgfmt`, gettext); `app` makes `fheroes2.app`; `demo` fetches the free demo (SHA-256) for tests; `stick [folder]` puts a game's folder on a FAT32 stick image for QEMU |
+| `app/app.ini` | the Starlight bundle's description: capabilities and the folders it may read |
+| `patches/0001-peos.patch` | SDL's software renderer on PeOS (no GPU needed); file lookup that starts from the folders an app may read; the copy of your game on the first start; a log line for each save and load |
 | `tests/` | the test bundle and its steps (`make test-fheroes2` in PeOS) |
 
 What PeOS gives it, in PeOS's tree:
