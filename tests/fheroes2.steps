@@ -1,5 +1,6 @@
 # make test-fheroes2: fheroes2 from the dock (the first tile), then its
-# first screens.
+# first screens. Enter closes the welcome message; on "Data files not
+# found!" it ends the game, which logs the exception the test looks for.
 wait 5
 move 74 89
 click
@@ -7,3 +8,6 @@ wait 40
 shot start
 wait 20
 shot later
+key ret
+wait 10
+shot after-enter
